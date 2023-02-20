@@ -47,33 +47,33 @@ def solve(f, g, z0, z1, ξ, quadratic=False, tol=1e-9, max_iter=1000):
     n_states = z0.shape[1]
     error = 1.
     count = 0
-    n_fos = int(f.shape[1]/n_states) # Number of constraints on each state
+    n_fos = int(f.shape[1]/n_states)  # Number of constraints on each state
 
     if quadratic:
         v = np.zeros(n_states)
         v_μ = np.zeros(n_states)  # v+μ
         λ_1 = np.zeros(f.shape[1])
-        λ_2 = np.zeros(n_states)        
+        λ_2 = np.zeros(n_states)
         while error > tol and count < max_iter:
             for state in range(n_states):
                 v_μ[state], λ_1[state*n_fos: (state+1)*n_fos], λ_2[state]\
-                = _minimize_objective_quadratic(f, g, z0, z1, state, n_fos, v, ξ, tol, max_iter)
+                    = _minimize_objective_quadratic(f, g, z0, z1, state, n_fos, v, ξ, tol, max_iter)
             v_old = v
             μ = v_μ[0]
             v = v_μ - v_μ[0]
             error = np.max(np.abs(v - v_old))
             count += 1
         N = -1./ξ*(g+z1@v+f@λ_1+z0@λ_2) + 0.5
-        N[N<0]=0
+        N[N < 0] = 0
         λ = np.concatenate((λ_1, λ_2))
     else:
         v = np.zeros(n_states)
         e = np.ones(n_states)
-        λ = np.zeros(f.shape[1])        
+        λ = np.zeros(f.shape[1])
         while error > tol and count < max_iter:
             for state in range(n_states):
                 v[state], λ[state*n_fos: (state+1)*n_fos]\
-                = _minimize_objective(f, g, z0, z1, state, n_fos, e, ξ, tol, max_iter)
+                    = _minimize_objective(f, g, z0, z1, state, n_fos, e, ξ, tol, max_iter)
             e_old = e
             ϵ = v[0]
             e = v/v[0]
@@ -81,35 +81,37 @@ def solve(f, g, z0, z1, ξ, quadratic=False, tol=1e-9, max_iter=1000):
             count += 1
         N = 1./ϵ * np.exp(-g/ξ+f@λ) * (z1@e) / (z0@e)
         v = - ξ * np.log(e)
-        μ = - ξ * np.log(ϵ)        
+        μ = - ξ * np.log(ϵ)
 
     if count == max_iter:
         print('Warning: maximal iterations reached.')
 
     P, P_tilde, π, π_tilde, RE, RE_cond, moment_bound,\
-    moment_bound_cond, moment_empirical, moment_empirical_cond = _compute_stats(z0, z1, g, N)
+        moment_bound_cond, moment_empirical, moment_empirical_cond = _compute_stats(
+            z0, z1, g, N)
 
-    res = OptimizeResult({'μ':μ,
-                          'count':count,
-                          'ξ':ξ,
-                          'v':v,
-                          'λ':λ,
-                          'RE_cond':RE_cond,
-                          'RE':RE,
-                          'P':P,
-                          'π':π,
-                          'P_tilde':P_tilde,
-                          'π_tilde':π_tilde,
-                          'moment_bound':moment_bound,
-                          'moment_bound_cond':moment_bound_cond,
-                          'moment_empirical_cond':moment_empirical_cond,
-                          'moment_empirical':moment_empirical,
-                          'N':N})
+    res = OptimizeResult({'μ': μ,
+                          'count': count,
+                          'ξ': ξ,
+                          'v': v,
+                          'λ': λ,
+                          'RE_cond': RE_cond,
+                          'RE': RE,
+                          'P': P,
+                          'π': π,
+                          'P_tilde': P_tilde,
+                          'π_tilde': π_tilde,
+                          'moment_bound': moment_bound,
+                          'moment_bound_cond': moment_bound_cond,
+                          'moment_empirical_cond': moment_empirical_cond,
+                          'moment_empirical': moment_empirical,
+                          'N': N})
 
     if quadratic:
         div_cond = np.zeros(n_states)
         for state in range(n_states):
-            div_cond[state] = np.mean(N[z0[:, state]]**2 - N[z0[:, state]]) * 0.5
+            div_cond[state] = np.mean(
+                N[z0[:, state]]**2 - N[z0[:, state]]) * 0.5
         div = div_cond @ π_tilde
         res['QD'] = div
         res['QD_cond'] = div_cond
@@ -147,7 +149,7 @@ def find_ξ(solver_args, min_div, pct, initial_guess=1., interval=(0, 100.), tol
     -------
     ξ : float
         The ξ that corresponds to x% increase to the entropy.
-    
+
     """
     error = -1.
     count = 0
@@ -171,7 +173,8 @@ def find_ξ(solver_args, min_div, pct, initial_guess=1., interval=(0, 100.), tol
             ξ = (ξ + upper_bound)/2.
         count += 1
     if count == max_iter:
-        print('Warning: maximal iterations reached. Error = %s' % (RE/min_RE - pct - 1))
+        print('Warning: maximal iterations reached. Error = %s' %
+              (RE/min_RE - pct - 1))
     if lower_bound == upper_bound:
         print('Warning: lower bound is equal to upper bound. Please reset tolerance level.')
     return ξ
@@ -205,20 +208,20 @@ def _compute_stats(z0, z1, g, N):
             else:
                 NlogN_all[j] = N_temp[j]*np.log(N_temp[j])
         RE_cond[i] = np.mean(NlogN_all)
-    RE = RE_cond @ π_tilde    
+    RE = RE_cond @ π_tilde
 
     # Conditional and unconditional moment bounds for g
     moment_bound_cond = np.zeros(n_states)
     for state in range(n_states):
-        moment_bound_cond[state] = np.mean(N[z0[:, state]]* g[z0[:, state]])
+        moment_bound_cond[state] = np.mean(N[z0[:, state]] * g[z0[:, state]])
     moment_bound = moment_bound_cond @ π_tilde
 
     # Conditional and unconditional empirical moment for g
     moment_empirical_cond = np.zeros(n_states)
     for state in range(n_states):
         moment_empirical_cond[state] = np.mean(g[z0[:, state]])
-    moment_empirical = np.mean(g)    
-    
+    moment_empirical = np.mean(g)
+
     return P, P_tilde, π, π_tilde, RE, RE_cond, moment_bound,\
         moment_bound_cond, moment_empirical, moment_empirical_cond
 
@@ -227,7 +230,7 @@ def _compute_stats(z0, z1, g, N):
 def _objective(λ, f, g, z0, z1_float, state, n_fos, e, ξ):
     """
     The objective function.
-    
+
     """
     selector = z0[:, state]
     term_1 = -g[selector]/ξ
@@ -236,7 +239,7 @@ def _objective(λ, f, g, z0, z1_float, state, n_fos, e, ξ):
     x = term_1 + term_2 + term_3
     # Use "max trick" to improve accuracy
     a = x.max()
-    return np.log(np.mean(np.exp(x-a))) + a    
+    return np.log(np.mean(np.exp(x-a))) + a
 
 
 @njit
@@ -244,22 +247,24 @@ def _objective_gradient(λ, f, g, z0, z1_float,
                         state, n_fos, e, ξ):
     """
     Gradient of the objective function.
-    
+
     """
-    selector = z0[:,state]
-    temp1 = -g[selector]/ξ + f[:,state*n_fos:(state+1)*n_fos][selector]@λ + np.log(z1_float[selector]@e)
-    temp2 = f[:,state*n_fos:(state+1)*n_fos][selector]*(np.exp(temp1.reshape((len(temp1),1)))/np.mean(np.exp(temp1)))
+    selector = z0[:, state]
+    temp1 = -g[selector]/ξ + f[:, state *
+                               n_fos:(state+1)*n_fos][selector]@λ + np.log(z1_float[selector]@e)
+    temp2 = f[:, state*n_fos:(state+1)*n_fos][selector] * \
+        (np.exp(temp1.reshape((len(temp1), 1)))/np.mean(np.exp(temp1)))
     temp3 = np.empty(temp2.shape[1])
     for i in range(temp2.shape[1]):
-        temp3[i] = np.mean(temp2[:,i])
-    return temp3         
+        temp3[i] = np.mean(temp2[:, i])
+    return temp3
 
 
 @njit
 def _objective_quadratic(λ, f, g, z0, z1_float, state, n_fos, v, ξ):
     """
     The objective function with quadratic specification of divergence.
-    
+
     """
     λ_1 = λ[:-1]
     λ_2 = λ[-1]
@@ -269,7 +274,7 @@ def _objective_quadratic(λ, f, g, z0, z1_float, state, n_fos, v, ξ):
     term_3 = f[:, state*n_fos:(state+1)*n_fos][selector]@λ_1
     term_4 = λ_2
     x = (term_1+term_2+term_3+term_4)/(-ξ) + 0.5
-    x[x<0] = 0
+    x[x < 0] = 0
     result = np.mean(x**2)*(ξ/2.) + λ_2
     return result
 
@@ -280,19 +285,20 @@ def _minimize_objective(f, g, z0, z1, state, n_fos, e, ξ, tol, max_iter):
 
     """
     z1_float = z1.astype(float)
-    
-    for method in ['L-BFGS-B','BFGS','CG']:
-        model = minimize(_objective, 
+
+    for method in ['L-BFGS-B', 'BFGS', 'CG']:
+        model = minimize(_objective,
                          np.ones(n_fos),
-                         args = (f, g, z0, z1_float, state, n_fos, e, ξ),
-                         method = method,
-                         jac = _objective_gradient,
-                         tol = tol,
-                         options = {'maxiter': max_iter})
+                         args=(f, g, z0, z1_float, state, n_fos, e, ξ),
+                         method=method,
+                         jac=_objective_gradient,
+                         tol=tol,
+                         options={'maxiter': max_iter})
         if model.success:
             break
     if model.success == False:
-        print("---Warning: the convex solver fails when ξ = %s, tolerance = %s--- " % (ξ, tol))
+        print(
+            "---Warning: the convex solver fails when ξ = %s, tolerance = %s--- " % (ξ, tol))
         print(model.message)
 
     v = np.exp(model.fun)
@@ -306,18 +312,19 @@ def _minimize_objective_quadratic(f, g, z0, z1, state, n_fos, v, ξ, tol, max_it
 
     """
     z1_float = z1.astype(float)
-    
-    for method in ['L-BFGS-B','BFGS','CG']:
-        model = minimize(_objective_quadratic, 
+
+    for method in ['L-BFGS-B', 'BFGS', 'CG']:
+        model = minimize(_objective_quadratic,
                          np.ones(n_fos+1),
-                         args = (f, g, z0, z1_float, state, n_fos, v, ξ),
-                         method = method,
-                         tol = tol,
-                         options = {'maxiter': max_iter})
+                         args=(f, g, z0, z1_float, state, n_fos, v, ξ),
+                         method=method,
+                         tol=tol,
+                         options={'maxiter': max_iter})
         if model.success:
             break
     if model.success == False:
-        print("---Warning: the convex solver fails when ξ = %s, tolerance = %s--- " % (ξ, tol))
+        print(
+            "---Warning: the convex solver fails when ξ = %s, tolerance = %s--- " % (ξ, tol))
         print(model.message)
 
     # Calculate v+μ, λ_1 and λ_2 (here λ_1 is of dimension self.n_f)
